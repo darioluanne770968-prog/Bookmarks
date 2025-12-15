@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Bookmarks</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1>🔖 AI Bookmarks</h1>
+      <button id="settingsBtn" class="icon-btn" title="设置">⚙️</button>
+    </header>
+
+    <!-- Quick Save Section -->
+    <section id="quickSave" class="section">
+      <div class="current-page">
+        <img id="favicon" src="" alt="" class="favicon">
+        <div class="page-info">
+          <h3 id="pageTitle">当前页面</h3>
+          <p id="pageUrl" class="url"></p>
+        </div>
+      </div>
+      <button id="saveBtn" class="primary-btn">
+        <span class="btn-icon">➕</span>
+        <span>一键收藏</span>
+      </button>
+      <div id="saveStatus" class="status"></div>
+    </section>
+
+    <!-- Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="search">🔍 搜索</button>
+      <button class="tab" data-tab="bookmarks">📚 书签</button>
+      <button class="tab" data-tab="review">🔔 回顾</button>
+    </nav>
+
+    <!-- Search Tab -->
+    <section id="searchTab" class="tab-content active">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="用自然语言搜索，如：那篇讲 SEO 的文章...">
+        <button id="searchBtn" class="search-btn">搜索</button>
+      </div>
+      <div id="searchResults" class="results-list"></div>
+    </section>
+
+    <!-- Bookmarks Tab -->
+    <section id="bookmarksTab" class="tab-content">
+      <div class="filter-bar">
+        <select id="categoryFilter">
+          <option value="">全部分类</option>
+        </select>
+        <span id="bookmarkCount" class="count">0 个书签</span>
+      </div>
+      <div id="bookmarksList" class="results-list"></div>
+    </section>
+
+    <!-- Review Tab -->
+    <section id="reviewTab" class="tab-content">
+      <div class="review-header">
+        <h3>📖 今日回顾</h3>
+        <p class="subtitle">这些收藏值得重温</p>
+      </div>
+      <div id="reviewList" class="results-list"></div>
+    </section>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>⚙️ 设置</h2>
+          <button id="closeSettings" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-item">
+            <label for="apiKey">OpenAI API Key</label>
+            <input type="password" id="apiKey" placeholder="sk-...">
+          </div>
+          <div class="setting-item">
+            <label for="reviewTime">每日回顾时间</label>
+            <input type="time" id="reviewTime" value="09:00">
+          </div>
+          <div class="setting-item">
+            <label for="reviewCount">每日回顾数量</label>
+            <input type="number" id="reviewCount" value="3" min="1" max="10">
+          </div>
+          <button id="saveSettings" class="primary-btn">保存设置</button>
+          <hr>
+          <div class="setting-item">
+            <button id="exportBtn" class="secondary-btn">📤 导出书签</button>
+            <button id="importBtn" class="secondary-btn">📥 导入书签</button>
+            <input type="file" id="importFile" accept=".json" style="display:none">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bookmark Detail Modal -->
+    <div id="detailModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="detailTitle">书签详情</h2>
+          <button id="closeDetail" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="detail-section">
+            <label>摘要</label>
+            <p id="detailSummary" class="summary-text"></p>
+          </div>
+          <div class="detail-section">
+            <label>分类</label>
+            <div id="detailCategory" class="category-tag"></div>
+          </div>
+          <div class="detail-section">
+            <label>关键词</label>
+            <div id="detailKeywords" class="keywords"></div>
+          </div>
+          <div class="detail-section">
+            <label>收藏时间</label>
+            <p id="detailDate"></p>
+          </div>
+          <div class="detail-actions">
+            <button id="openBookmark" class="primary-btn">打开链接</button>
+            <button id="deleteBookmark" class="danger-btn">删除</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

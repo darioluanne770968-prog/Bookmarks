@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generate Icons</title>
+</head>
+<body>
+  <h1>Icon Generator</h1>
+  <p>Right-click and save each icon:</p>
+  <div id="icons"></div>
+
+  <script>
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#667eea"/>
+          <stop offset="100%" style="stop-color:#764ba2"/>
+        </linearGradient>
+      </defs>
+      <rect width="128" height="128" rx="24" fill="url(#bg)"/>
+      <path d="M32 24h64c4.4 0 8 3.6 8 8v72c0 4.4-3.6 8-8 8H64L48 96l-16 16H32c-4.4 0-8-3.6-8-8V32c0-4.4 3.6-8 8-8z" fill="white" opacity="0.95"/>
+      <circle cx="64" cy="52" r="16" fill="url(#bg)"/>
+      <path d="M52 72h24M48 82h32" stroke="url(#bg)" stroke-width="4" stroke-linecap="round"/>
+    </svg>`;
+
+    const sizes = [16, 48, 128];
+    const container = document.getElementById('icons');
+
+    sizes.forEach(size => {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, size, size);
+        const link = document.createElement('a');
+        link.download = `icon${size}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.textContent = `Download icon${size}.png`;
+        link.style.display = 'block';
+        link.style.margin = '10px';
+        container.appendChild(link);
+        container.appendChild(canvas);
+      };
+
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      img.src = URL.createObjectURL(blob);
+    });
+  </script>
+</body>
+</html>
