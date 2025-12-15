@@ -11,7 +11,10 @@
     <!-- Header -->
     <header class="header">
       <h1>🔖 AI Bookmarks</h1>
-      <button id="settingsBtn" class="icon-btn" title="设置">⚙️</button>
+      <div class="header-actions">
+        <button id="darkModeBtn" class="icon-btn" title="深色模式">🌙</button>
+        <button id="settingsBtn" class="icon-btn" title="设置">⚙️</button>
+      </div>
     </header>
 
     <!-- Quick Save Section -->
@@ -23,11 +26,15 @@
           <p id="pageUrl" class="url"></p>
         </div>
       </div>
-      <button id="saveBtn" class="primary-btn">
-        <span class="btn-icon">➕</span>
-        <span>一键收藏</span>
-      </button>
+      <div class="save-actions">
+        <button id="saveBtn" class="primary-btn">
+          <span class="btn-icon">➕</span>
+          <span>一键收藏</span>
+        </button>
+        <button id="saveWithNoteBtn" class="secondary-btn" title="添加笔记收藏">📝</button>
+      </div>
       <div id="saveStatus" class="status"></div>
+      <div class="shortcut-hint">快捷键: Alt+Shift+S 快速收藏</div>
     </section>
 
     <!-- Tabs -->
@@ -35,6 +42,7 @@
       <button class="tab active" data-tab="search">🔍 搜索</button>
       <button class="tab" data-tab="bookmarks">📚 书签</button>
       <button class="tab" data-tab="review">🔔 回顾</button>
+      <button class="tab" data-tab="stats">📊 统计</button>
     </nav>
 
     <!-- Search Tab -->
@@ -52,6 +60,11 @@
         <select id="categoryFilter">
           <option value="">全部分类</option>
         </select>
+        <select id="statusFilter">
+          <option value="">全部状态</option>
+          <option value="ok">正常</option>
+          <option value="broken">失效</option>
+        </select>
         <span id="bookmarkCount" class="count">0 个书签</span>
       </div>
       <div id="bookmarksList" class="results-list"></div>
@@ -66,6 +79,43 @@
       <div id="reviewList" class="results-list"></div>
     </section>
 
+    <!-- Stats Tab -->
+    <section id="statsTab" class="tab-content">
+      <div class="stats-container">
+        <div class="stat-card">
+          <div class="stat-number" id="totalBookmarks">0</div>
+          <div class="stat-label">总书签数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="reviewedCount">0</div>
+          <div class="stat-label">已回顾</div>
+        </div>
+        <div class="stat-card warning">
+          <div class="stat-number" id="brokenCount">0</div>
+          <div class="stat-label">失效链接</div>
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <h4>📁 分类分布</h4>
+        <div id="categoryStats" class="category-bars"></div>
+      </div>
+
+      <div class="stats-section">
+        <h4>🏷️ 热门关键词</h4>
+        <div id="keywordCloud" class="keyword-cloud"></div>
+      </div>
+
+      <div class="stats-section">
+        <h4>📈 收藏趋势</h4>
+        <div id="trendChart" class="trend-chart"></div>
+      </div>
+
+      <div class="stats-actions">
+        <button id="checkLinksBtn" class="secondary-btn">🔗 检查所有链接</button>
+      </div>
+    </section>
+
     <!-- Settings Modal -->
     <div id="settingsModal" class="modal hidden">
       <div class="modal-content">
@@ -77,6 +127,7 @@
           <div class="setting-item">
             <label for="apiKey">OpenAI API Key</label>
             <input type="password" id="apiKey" placeholder="sk-...">
+            <p class="hint">用于 AI 摘要和语义搜索</p>
           </div>
           <div class="setting-item">
             <label for="reviewTime">每日回顾时间</label>
@@ -87,11 +138,18 @@
             <input type="number" id="reviewCount" value="3" min="1" max="10">
           </div>
           <button id="saveSettings" class="primary-btn">保存设置</button>
+
           <hr>
-          <div class="setting-item">
+
+          <h3>数据管理</h3>
+          <div class="setting-item button-group">
             <button id="exportBtn" class="secondary-btn">📤 导出书签</button>
             <button id="importBtn" class="secondary-btn">📥 导入书签</button>
             <input type="file" id="importFile" accept=".json" style="display:none">
+          </div>
+          <div class="setting-item">
+            <button id="importBrowserBtn" class="secondary-btn full-width">🌐 导入浏览器书签</button>
+            <p class="hint">从 Chrome 书签栏导入所有书签</p>
           </div>
         </div>
       </div>
@@ -110,6 +168,10 @@
             <p id="detailSummary" class="summary-text"></p>
           </div>
           <div class="detail-section">
+            <label>为什么值得读</label>
+            <p id="detailWhyRead" class="why-read-text"></p>
+          </div>
+          <div class="detail-section">
             <label>分类</label>
             <div id="detailCategory" class="category-tag"></div>
           </div>
@@ -118,13 +180,44 @@
             <div id="detailKeywords" class="keywords"></div>
           </div>
           <div class="detail-section">
+            <label>笔记</label>
+            <textarea id="detailNote" class="note-input" placeholder="添加你的笔记..."></textarea>
+            <button id="saveNoteBtn" class="small-btn">保存笔记</button>
+          </div>
+          <div class="detail-section">
+            <label>链接状态</label>
+            <span id="detailLinkStatus" class="link-status"></span>
+            <button id="checkLinkBtn" class="small-btn">检查</button>
+          </div>
+          <div class="detail-section">
             <label>收藏时间</label>
             <p id="detailDate"></p>
           </div>
+
+          <div class="detail-section">
+            <label>相似书签</label>
+            <div id="similarBookmarks" class="similar-list"></div>
+          </div>
+
           <div class="detail-actions">
             <button id="openBookmark" class="primary-btn">打开链接</button>
             <button id="deleteBookmark" class="danger-btn">删除</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Note Modal -->
+    <div id="noteModal" class="modal hidden">
+      <div class="modal-content small">
+        <div class="modal-header">
+          <h2>📝 添加笔记</h2>
+          <button id="closeNoteModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <p id="notePageTitle" class="note-page-title"></p>
+          <textarea id="saveNote" class="note-input large" placeholder="为什么收藏这个页面？有什么想法？"></textarea>
+          <button id="confirmSaveWithNote" class="primary-btn">收藏并保存笔记</button>
         </div>
       </div>
     </div>

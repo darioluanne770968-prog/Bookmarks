@@ -11,15 +11,120 @@ chrome.runtime.onInstalled.addListener(async () => {
     periodInMinutes: 60 * 24 // Once per day
   });
 
+  // Set up link health check alarm (weekly)
+  chrome.alarms.create('linkHealthCheck', {
+    periodInMinutes: 60 * 24 * 7 // Once per week
+  });
+
+  // Create context menu
+  chrome.contextMenus.create({
+    id: 'saveBookmark',
+    title: '📌 保存到 AI Bookmarks',
+    contexts: ['page', 'link']
+  });
+
+  chrome.contextMenus.create({
+    id: 'saveWithNote',
+    title: '📝 保存并添加笔记',
+    contexts: ['page', 'link']
+  });
+
+  chrome.contextMenus.create({
+    id: 'separator',
+    type: 'separator',
+    contexts: ['page', 'link']
+  });
+
+  chrome.contextMenus.create({
+    id: 'findSimilar',
+    title: '🔍 查找相似收藏',
+    contexts: ['page']
+  });
+
   // Initialize storage
   await storage.init();
   await aiService.init();
 });
 
+// Handle context menu clicks
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  const url = info.linkUrl || info.pageUrl;
+  const title = tab?.title || url;
+
+  if (info.menuItemId === 'saveBookmark') {
+    await quickSaveBookmark(url, title, tab);
+  } else if (info.menuItemId === 'saveWithNote') {
+    // Open popup with note dialog
+    chrome.storage.local.set({ pendingNote: { url, title } });
+    chrome.action.openPopup();
+  } else if (info.menuItemId === 'findSimilar') {
+    chrome.storage.local.set({ findSimilarUrl: url });
+    chrome.action.openPopup();
+  }
+});
+
+// Handle keyboard shortcuts
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command === 'save-bookmark') {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab) {
+      await quickSaveBookmark(tab.url, tab.title, tab);
+    }
+  } else if (command === 'open-search') {
+    chrome.action.openPopup();
+  }
+});
+
+// Quick save without opening popup
+async function quickSaveBookmark(url, title, tab) {
+  try {
+    await storage.init();
+    await aiService.init();
+
+    // Check if already exists
+    const existing = await storage.getByUrl(url);
+    if (existing) {
+      showNotification('already-saved', '已收藏', '此页面已在收藏中');
+      return;
+    }
+
+    // Try to get page content
+    let pageData = { url, title, favicon: tab?.favIconUrl };
+    try {
+      if (tab?.id) {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js']
+        });
+        const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractContent' });
+        pageData = { ...pageData, ...response };
+      }
+    } catch (e) {
+      console.log('Content extraction failed, using basic info');
+    }
+
+    await saveBookmark(pageData);
+    showNotification('saved', '✅ 收藏成功', 'AI 已自动生成摘要和分类');
+  } catch (error) {
+    showNotification('error', '收藏失败', error.message);
+  }
+}
+
+function showNotification(id, title, message) {
+  chrome.notifications.create(id, {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title,
+    message
+  });
+}
+
 // Handle alarm for daily review
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'dailyReview') {
     await showReviewNotification();
+  } else if (alarm.name === 'linkHealthCheck') {
+    await checkLinksHealth();
   }
 });
 
@@ -35,15 +140,43 @@ async function showReviewNotification() {
       type: 'basic',
       iconUrl: 'icons/icon128.png',
       title: '📖 书签回顾时间',
-      message: `有 ${bookmarks.length} 个收藏值得重温`,
-      buttons: [{ title: '查看' }]
+      message: `有 ${bookmarks.length} 个收藏值得重温`
+    });
+  }
+}
+
+// Link health check
+async function checkLinksHealth() {
+  await storage.init();
+  const bookmarks = await storage.getAll();
+  let brokenCount = 0;
+
+  for (const bookmark of bookmarks) {
+    try {
+      const response = await fetch(bookmark.url, { method: 'HEAD', mode: 'no-cors' });
+      bookmark.linkStatus = 'ok';
+      bookmark.lastChecked = Date.now();
+    } catch (error) {
+      bookmark.linkStatus = 'broken';
+      bookmark.lastChecked = Date.now();
+      brokenCount++;
+    }
+    await storage.update(bookmark);
+  }
+
+  if (brokenCount > 0) {
+    chrome.notifications.create('broken-links', {
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: '⚠️ 发现失效链接',
+      message: `有 ${brokenCount} 个书签链接可能已失效`
     });
   }
 }
 
 // Handle notification click
 chrome.notifications.onClicked.addListener((notificationId) => {
-  if (notificationId === 'review') {
+  if (notificationId === 'review' || notificationId === 'broken-links') {
     chrome.action.openPopup();
   }
 });
@@ -63,6 +196,20 @@ async function handleMessage(request, sendResponse) {
       case 'saveBookmark':
         const result = await saveBookmark(request.data);
         sendResponse({ success: true, data: result });
+        break;
+
+      case 'saveBookmarkWithNote':
+        const resultWithNote = await saveBookmark(request.data, request.note);
+        sendResponse({ success: true, data: resultWithNote });
+        break;
+
+      case 'updateNote':
+        const bookmarkToUpdate = await storage.get(request.id);
+        if (bookmarkToUpdate) {
+          bookmarkToUpdate.note = request.note;
+          await storage.update(bookmarkToUpdate);
+        }
+        sendResponse({ success: true });
         break;
 
       case 'getBookmarks':
@@ -125,6 +272,11 @@ async function handleMessage(request, sendResponse) {
         sendResponse({ success: true, data: importCount });
         break;
 
+      case 'importBrowserBookmarks':
+        const browserImportCount = await importBrowserBookmarks();
+        sendResponse({ success: true, data: browserImportCount });
+        break;
+
       case 'getCount':
         const count = await storage.count();
         sendResponse({ success: true, data: count });
@@ -133,6 +285,44 @@ async function handleMessage(request, sendResponse) {
       case 'checkExists':
         const exists = await storage.getByUrl(request.url);
         sendResponse({ success: true, data: !!exists });
+        break;
+
+      case 'checkLinkHealth':
+        const healthResult = await checkSingleLinkHealth(request.url);
+        sendResponse({ success: true, data: healthResult });
+        break;
+
+      case 'checkAllLinksHealth':
+        await checkLinksHealth();
+        sendResponse({ success: true });
+        break;
+
+      case 'getBrokenLinks':
+        const allBookmarks = await storage.getAll();
+        const broken = allBookmarks.filter(b => b.linkStatus === 'broken');
+        sendResponse({ success: true, data: broken });
+        break;
+
+      case 'getSimilarBookmarks':
+        const similar = await findSimilarBookmarks(request.id, request.count || 5);
+        sendResponse({ success: true, data: similar });
+        break;
+
+      case 'getStats':
+        const stats = await getStatistics();
+        sendResponse({ success: true, data: stats });
+        break;
+
+      case 'getPendingNote':
+        const pending = await chrome.storage.local.get(['pendingNote']);
+        await chrome.storage.local.remove(['pendingNote']);
+        sendResponse({ success: true, data: pending.pendingNote });
+        break;
+
+      case 'getFindSimilarUrl':
+        const similarUrl = await chrome.storage.local.get(['findSimilarUrl']);
+        await chrome.storage.local.remove(['findSimilarUrl']);
+        sendResponse({ success: true, data: similarUrl.findSimilarUrl });
         break;
 
       default:
@@ -144,7 +334,7 @@ async function handleMessage(request, sendResponse) {
   }
 }
 
-async function saveBookmark(data) {
+async function saveBookmark(data, note = '') {
   // Check if already exists
   const existing = await storage.getByUrl(data.url);
   if (existing) {
@@ -176,7 +366,10 @@ async function saveBookmark(data) {
     category: analysis.category,
     keywords: analysis.keywords,
     whyRead: analysis.whyRead,
-    embedding
+    embedding,
+    note,
+    linkStatus: 'ok',
+    lastChecked: Date.now()
   };
 
   // Save to storage
@@ -200,4 +393,119 @@ async function searchBookmarks(query) {
     // Fallback to keyword search
     return aiService.keywordSearch(query, bookmarks);
   }
+}
+
+async function checkSingleLinkHealth(url) {
+  try {
+    const response = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
+    return { status: 'ok' };
+  } catch (error) {
+    return { status: 'broken', error: error.message };
+  }
+}
+
+async function findSimilarBookmarks(bookmarkId, count = 5) {
+  const bookmark = await storage.get(bookmarkId);
+  if (!bookmark || !bookmark.embedding) {
+    return [];
+  }
+
+  const allBookmarks = await storage.getAll();
+  const others = allBookmarks.filter(b => b.id !== bookmarkId && b.embedding);
+
+  const results = others.map(b => ({
+    bookmark: b,
+    similarity: aiService.cosineSimilarity(bookmark.embedding, b.embedding)
+  }));
+
+  results.sort((a, b) => b.similarity - a.similarity);
+  return results.slice(0, count);
+}
+
+async function importBrowserBookmarks() {
+  const browserBookmarks = await chrome.bookmarks.getTree();
+  let importCount = 0;
+
+  async function processNode(node) {
+    if (node.url) {
+      try {
+        const existing = await storage.getByUrl(node.url);
+        if (!existing) {
+          await saveBookmark({
+            url: node.url,
+            title: node.title || node.url,
+            favicon: '',
+            content: '',
+            description: ''
+          });
+          importCount++;
+        }
+      } catch (e) {
+        console.warn('Failed to import:', node.url);
+      }
+    }
+
+    if (node.children) {
+      for (const child of node.children) {
+        await processNode(child);
+      }
+    }
+  }
+
+  for (const root of browserBookmarks) {
+    await processNode(root);
+  }
+
+  return importCount;
+}
+
+async function getStatistics() {
+  const bookmarks = await storage.getAll();
+
+  // Category distribution
+  const categoryCount = {};
+  bookmarks.forEach(b => {
+    const cat = b.category || '未分类';
+    categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+  });
+
+  // Time distribution (by month)
+  const monthlyCount = {};
+  bookmarks.forEach(b => {
+    const date = new Date(b.createdAt);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    monthlyCount[key] = (monthlyCount[key] || 0) + 1;
+  });
+
+  // Link health
+  const healthCount = {
+    ok: bookmarks.filter(b => b.linkStatus === 'ok').length,
+    broken: bookmarks.filter(b => b.linkStatus === 'broken').length,
+    unchecked: bookmarks.filter(b => !b.linkStatus).length
+  };
+
+  // Review stats
+  const reviewed = bookmarks.filter(b => b.lastReviewed).length;
+  const neverReviewed = bookmarks.length - reviewed;
+
+  // Top keywords
+  const keywordCount = {};
+  bookmarks.forEach(b => {
+    (b.keywords || []).forEach(k => {
+      keywordCount[k] = (keywordCount[k] || 0) + 1;
+    });
+  });
+  const topKeywords = Object.entries(keywordCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([keyword, count]) => ({ keyword, count }));
+
+  return {
+    total: bookmarks.length,
+    categoryCount,
+    monthlyCount,
+    healthCount,
+    reviewStats: { reviewed, neverReviewed },
+    topKeywords
+  };
 }
