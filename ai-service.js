@@ -254,6 +254,271 @@ class AIService {
       .filter(r => r.similarity > 0)
       .sort((a, b) => b.similarity - a.similarity);
   }
+
+  // AI Conversational Search - Generate natural language answer based on bookmarks
+  async generateSearchAnswer(query, searchResults) {
+    if (!this.apiKey || searchResults.length === 0) {
+      return this.simpleSearchAnswer(query, searchResults);
+    }
+
+    try {
+      const bookmarkContext = searchResults.slice(0, 5).map((r, i) =>
+        `${i + 1}. "${r.bookmark.title}"\n   摘要: ${r.bookmark.summary}\n   关键词: ${(r.bookmark.keywords || []).join(', ')}\n   URL: ${r.bookmark.url}`
+      ).join('\n\n');
+
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: `你是一个智能书签助手。用户会问关于他们收藏的书签的问题。根据提供的书签信息，用自然语言回答用户的问题。
+回答要求：
+1. 简洁明了，直接回答问题
+2. 引用相关书签时提供标题
+3. 如果书签中没有相关信息，诚实说明
+4. 可以提供进一步阅读建议`
+            },
+            {
+              role: 'user',
+              content: `用户问题: ${query}\n\n相关书签:\n${bookmarkContext}`
+            }
+          ],
+          temperature: 0.5,
+          max_tokens: 800
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return {
+        answer: data.choices[0].message.content,
+        sources: searchResults.slice(0, 5).map(r => ({
+          title: r.bookmark.title,
+          url: r.bookmark.url,
+          similarity: r.similarity
+        }))
+      };
+    } catch (error) {
+      console.error('AI search answer failed:', error);
+      return this.simpleSearchAnswer(query, searchResults);
+    }
+  }
+
+  simpleSearchAnswer(query, searchResults) {
+    if (searchResults.length === 0) {
+      return {
+        answer: '没有找到与您问题相关的书签。请尝试使用不同的关键词搜索。',
+        sources: []
+      };
+    }
+
+    const topResults = searchResults.slice(0, 5);
+    const answer = `找到 ${searchResults.length} 个相关书签。最相关的是：\n\n` +
+      topResults.map((r, i) => `${i + 1}. ${r.bookmark.title}`).join('\n') +
+      '\n\n点击书签可以查看详情。';
+
+    return {
+      answer,
+      sources: topResults.map(r => ({
+        title: r.bookmark.title,
+        url: r.bookmark.url,
+        similarity: r.similarity
+      }))
+    };
+  }
+
+  // Generate knowledge graph connections
+  async generateGraphConnections(bookmarks) {
+    const nodes = bookmarks.map(b => ({
+      id: b.id,
+      title: b.title,
+      category: b.category,
+      keywords: b.keywords || []
+    }));
+
+    const links = [];
+
+    // Create links based on shared keywords and categories
+    for (let i = 0; i < bookmarks.length; i++) {
+      for (let j = i + 1; j < bookmarks.length; j++) {
+        const a = bookmarks[i];
+        const b = bookmarks[j];
+
+        // Link by same category
+        if (a.category === b.category) {
+          links.push({
+            source: a.id,
+            target: b.id,
+            type: 'category',
+            strength: 0.3
+          });
+        }
+
+        // Link by shared keywords
+        const sharedKeywords = (a.keywords || []).filter(k =>
+          (b.keywords || []).includes(k)
+        );
+        if (sharedKeywords.length > 0) {
+          links.push({
+            source: a.id,
+            target: b.id,
+            type: 'keyword',
+            keywords: sharedKeywords,
+            strength: Math.min(sharedKeywords.length * 0.2, 1)
+          });
+        }
+
+        // Link by embedding similarity if available
+        if (a.embedding && b.embedding) {
+          const similarity = this.cosineSimilarity(a.embedding, b.embedding);
+          if (similarity > 0.7) {
+            links.push({
+              source: a.id,
+              target: b.id,
+              type: 'semantic',
+              strength: similarity
+            });
+          }
+        }
+      }
+    }
+
+    return { nodes, links };
+  }
+
+  // Detect content changes
+  async detectContentChanges(oldContent, newContent) {
+    if (!oldContent || !newContent) return { changed: false };
+
+    const oldHash = this.hashCode(oldContent);
+    const newHash = this.hashCode(newContent);
+
+    if (oldHash === newHash) {
+      return { changed: false };
+    }
+
+    // Simple diff detection
+    const oldLines = oldContent.split('\n');
+    const newLines = newContent.split('\n');
+
+    const addedLines = newLines.filter(l => !oldLines.includes(l));
+    const removedLines = oldLines.filter(l => !newLines.includes(l));
+
+    return {
+      changed: true,
+      addedCount: addedLines.length,
+      removedCount: removedLines.length,
+      summary: `新增 ${addedLines.length} 行，删除 ${removedLines.length} 行`
+    };
+  }
+
+  // Find duplicate bookmarks
+  async findDuplicates(bookmarks) {
+    const duplicates = [];
+    const urlMap = new Map();
+    const titleMap = new Map();
+
+    for (const bookmark of bookmarks) {
+      // Check URL duplicates (exact match)
+      const normalizedUrl = bookmark.url.replace(/[?#].*$/, '').replace(/\/$/, '');
+      if (urlMap.has(normalizedUrl)) {
+        duplicates.push({
+          type: 'url',
+          original: urlMap.get(normalizedUrl),
+          duplicate: bookmark
+        });
+      } else {
+        urlMap.set(normalizedUrl, bookmark);
+      }
+
+      // Check title similarity
+      const normalizedTitle = bookmark.title.toLowerCase().trim();
+      for (const [existingTitle, existingBookmark] of titleMap) {
+        const similarity = this.titleSimilarity(normalizedTitle, existingTitle);
+        if (similarity > 0.8 && existingBookmark.id !== bookmark.id) {
+          duplicates.push({
+            type: 'similar_title',
+            original: existingBookmark,
+            duplicate: bookmark,
+            similarity
+          });
+        }
+      }
+      titleMap.set(normalizedTitle, bookmark);
+    }
+
+    // Check embedding similarity for potential duplicates
+    const embeddedBookmarks = bookmarks.filter(b => b.embedding);
+    for (let i = 0; i < embeddedBookmarks.length; i++) {
+      for (let j = i + 1; j < embeddedBookmarks.length; j++) {
+        const similarity = this.cosineSimilarity(
+          embeddedBookmarks[i].embedding,
+          embeddedBookmarks[j].embedding
+        );
+        if (similarity > 0.95) {
+          const existing = duplicates.find(d =>
+            (d.original.id === embeddedBookmarks[i].id && d.duplicate.id === embeddedBookmarks[j].id) ||
+            (d.original.id === embeddedBookmarks[j].id && d.duplicate.id === embeddedBookmarks[i].id)
+          );
+          if (!existing) {
+            duplicates.push({
+              type: 'semantic',
+              original: embeddedBookmarks[i],
+              duplicate: embeddedBookmarks[j],
+              similarity
+            });
+          }
+        }
+      }
+    }
+
+    return duplicates;
+  }
+
+  titleSimilarity(a, b) {
+    if (a === b) return 1;
+    const longer = a.length > b.length ? a : b;
+    const shorter = a.length > b.length ? b : a;
+
+    if (longer.length === 0) return 1;
+
+    // Levenshtein distance based similarity
+    const editDistance = this.levenshteinDistance(longer, shorter);
+    return (longer.length - editDistance) / longer.length;
+  }
+
+  levenshteinDistance(a, b) {
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) {
+      matrix[i] = [i];
+    }
+    for (let j = 0; j <= a.length; j++) {
+      matrix[0][j] = j;
+    }
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    return matrix[b.length][a.length];
+  }
 }
 
 export const aiService = new AIService();

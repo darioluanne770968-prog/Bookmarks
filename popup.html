@@ -32,16 +32,20 @@
           <span>一键收藏</span>
         </button>
         <button id="saveWithNoteBtn" class="secondary-btn" title="添加笔记收藏">📝</button>
+        <button id="saveSnapshotBtn" class="secondary-btn" title="保存快照">📸</button>
+        <button id="readLaterBtn" class="secondary-btn" title="稍后阅读">⏰</button>
       </div>
       <div id="saveStatus" class="status"></div>
-      <div class="shortcut-hint">快捷键: Alt+Shift+S 快速收藏</div>
+      <div class="shortcut-hint">快捷键: Alt+Shift+S 快速收藏 | Alt+Shift+H 保存高亮</div>
     </section>
 
     <!-- Tabs -->
     <nav class="tabs">
       <button class="tab active" data-tab="search">🔍 搜索</button>
       <button class="tab" data-tab="bookmarks">📚 书签</button>
-      <button class="tab" data-tab="review">🔔 回顾</button>
+      <button class="tab" data-tab="folders">📁 文件夹</button>
+      <button class="tab" data-tab="timeline">📅 时间线</button>
+      <button class="tab" data-tab="graph">🕸️ 图谱</button>
       <button class="tab" data-tab="stats">📊 统计</button>
     </nav>
 
@@ -51,6 +55,17 @@
         <input type="text" id="searchInput" placeholder="用自然语言搜索，如：那篇讲 SEO 的文章...">
         <button id="searchBtn" class="search-btn">搜索</button>
       </div>
+      <div class="search-options">
+        <label class="checkbox-label">
+          <input type="checkbox" id="aiSearchToggle" checked>
+          <span>AI 对话模式</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="fullTextSearchToggle">
+          <span>全文搜索</span>
+        </label>
+      </div>
+      <div id="aiAnswer" class="ai-answer hidden"></div>
       <div id="searchResults" class="results-list"></div>
     </section>
 
@@ -60,23 +75,105 @@
         <select id="categoryFilter">
           <option value="">全部分类</option>
         </select>
+        <select id="folderFilter">
+          <option value="">全部文件夹</option>
+        </select>
         <select id="statusFilter">
           <option value="">全部状态</option>
           <option value="ok">正常</option>
           <option value="broken">失效</option>
+          <option value="unread">未读</option>
+          <option value="reading">阅读中</option>
+          <option value="read">已读</option>
         </select>
+        <select id="tagFilter">
+          <option value="">全部标签</option>
+        </select>
+      </div>
+      <div class="batch-actions hidden" id="batchActions">
+        <span id="selectedCount">已选择 0 项</span>
+        <button id="batchMoveBtn" class="small-btn">移动</button>
+        <button id="batchTagBtn" class="small-btn">添加标签</button>
+        <button id="batchDeleteBtn" class="small-btn danger">删除</button>
+        <button id="cancelBatchBtn" class="small-btn">取消</button>
+      </div>
+      <div class="list-header">
+        <label class="checkbox-label">
+          <input type="checkbox" id="selectAllBookmarks">
+          <span>全选</span>
+        </label>
         <span id="bookmarkCount" class="count">0 个书签</span>
+        <button id="batchModeBtn" class="small-btn">批量操作</button>
       </div>
       <div id="bookmarksList" class="results-list"></div>
     </section>
 
-    <!-- Review Tab -->
-    <section id="reviewTab" class="tab-content">
-      <div class="review-header">
-        <h3>📖 今日回顾</h3>
-        <p class="subtitle">这些收藏值得重温</p>
+    <!-- Folders Tab -->
+    <section id="foldersTab" class="tab-content">
+      <div class="folder-header">
+        <h3>📁 我的文件夹</h3>
+        <button id="createFolderBtn" class="small-btn">+ 新建</button>
       </div>
-      <div id="reviewList" class="results-list"></div>
+      <div id="foldersList" class="folders-list"></div>
+
+      <div class="section-divider"></div>
+
+      <div class="folder-header">
+        <h3>🏷️ 我的标签</h3>
+        <button id="createTagBtn" class="small-btn">+ 新建</button>
+      </div>
+      <div id="tagsList" class="tags-cloud"></div>
+
+      <div class="section-divider"></div>
+
+      <div class="folder-header">
+        <h3>⏰ 稍后阅读</h3>
+        <span id="readLaterCount" class="count">0</span>
+      </div>
+      <div id="readLaterList" class="results-list compact"></div>
+
+      <div class="section-divider"></div>
+
+      <div class="folder-header">
+        <h3>✨ 高亮标注</h3>
+        <span id="highlightCount" class="count">0</span>
+      </div>
+      <div id="highlightsList" class="highlights-list"></div>
+    </section>
+
+    <!-- Timeline Tab -->
+    <section id="timelineTab" class="tab-content">
+      <div class="timeline-header">
+        <h3>📅 收藏时间线</h3>
+        <select id="timelineRange">
+          <option value="7">最近 7 天</option>
+          <option value="30" selected>最近 30 天</option>
+          <option value="90">最近 90 天</option>
+          <option value="365">最近一年</option>
+          <option value="all">全部</option>
+        </select>
+      </div>
+      <div id="timelineView" class="timeline"></div>
+    </section>
+
+    <!-- Graph Tab -->
+    <section id="graphTab" class="tab-content">
+      <div class="graph-header">
+        <h3>🕸️ 知识图谱</h3>
+        <div class="graph-controls">
+          <select id="graphFilter">
+            <option value="all">全部连接</option>
+            <option value="category">按分类</option>
+            <option value="keyword">按关键词</option>
+            <option value="semantic">按语义相似</option>
+          </select>
+          <button id="refreshGraphBtn" class="small-btn">刷新</button>
+        </div>
+      </div>
+      <div id="graphContainer" class="graph-container">
+        <canvas id="graphCanvas"></canvas>
+      </div>
+      <div id="graphLegend" class="graph-legend"></div>
     </section>
 
     <!-- Stats Tab -->
@@ -89,6 +186,10 @@
         <div class="stat-card">
           <div class="stat-number" id="reviewedCount">0</div>
           <div class="stat-label">已回顾</div>
+        </div>
+        <div class="stat-card info">
+          <div class="stat-number" id="snapshotCount">0</div>
+          <div class="stat-label">快照数</div>
         </div>
         <div class="stat-card warning">
           <div class="stat-number" id="brokenCount">0</div>
@@ -111,8 +212,28 @@
         <div id="trendChart" class="trend-chart"></div>
       </div>
 
+      <div class="stats-section">
+        <h4>📖 阅读状态</h4>
+        <div id="readingStats" class="reading-stats">
+          <div class="reading-stat">
+            <span class="label">未读</span>
+            <span class="value" id="unreadCount">0</span>
+          </div>
+          <div class="reading-stat">
+            <span class="label">阅读中</span>
+            <span class="value" id="readingCount">0</span>
+          </div>
+          <div class="reading-stat">
+            <span class="label">已读</span>
+            <span class="value" id="readCount">0</span>
+          </div>
+        </div>
+      </div>
+
       <div class="stats-actions">
-        <button id="checkLinksBtn" class="secondary-btn">🔗 检查所有链接</button>
+        <button id="checkLinksBtn" class="secondary-btn">🔗 检查链接</button>
+        <button id="findDuplicatesBtn" class="secondary-btn">🔍 查找重复</button>
+        <button id="checkChangesBtn" class="secondary-btn">📝 检查变更</button>
       </div>
     </section>
 
@@ -137,15 +258,33 @@
             <label for="reviewCount">每日回顾数量</label>
             <input type="number" id="reviewCount" value="3" min="1" max="10">
           </div>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="autoSnapshot">
+              自动保存快照
+            </label>
+            <p class="hint">收藏时自动保存网页快照</p>
+          </div>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="monitorChanges">
+              监控内容变更
+            </label>
+            <p class="hint">定期检查收藏页面的内容变化</p>
+          </div>
           <button id="saveSettings" class="primary-btn">保存设置</button>
 
           <hr>
 
           <h3>数据管理</h3>
           <div class="setting-item button-group">
-            <button id="exportBtn" class="secondary-btn">📤 导出书签</button>
-            <button id="importBtn" class="secondary-btn">📥 导入书签</button>
+            <button id="exportBtn" class="secondary-btn">📤 导出 JSON</button>
+            <button id="importBtn" class="secondary-btn">📥 导入 JSON</button>
             <input type="file" id="importFile" accept=".json" style="display:none">
+          </div>
+          <div class="setting-item button-group">
+            <button id="exportNotionBtn" class="secondary-btn">📤 导出 Notion</button>
+            <button id="exportObsidianBtn" class="secondary-btn">📤 导出 Obsidian</button>
           </div>
           <div class="setting-item">
             <button id="importBrowserBtn" class="secondary-btn full-width">🌐 导入浏览器书签</button>
@@ -176,8 +315,37 @@
             <div id="detailCategory" class="category-tag"></div>
           </div>
           <div class="detail-section">
+            <label>文件夹</label>
+            <select id="detailFolder" class="folder-select">
+              <option value="">无</option>
+            </select>
+          </div>
+          <div class="detail-section">
+            <label>标签</label>
+            <div id="detailTags" class="tags-input-container">
+              <div class="tags-list"></div>
+              <input type="text" id="addTagInput" placeholder="添加标签..." class="tag-input">
+            </div>
+          </div>
+          <div class="detail-section">
             <label>关键词</label>
             <div id="detailKeywords" class="keywords"></div>
+          </div>
+          <div class="detail-section">
+            <label>阅读状态</label>
+            <div class="read-status-btns">
+              <button class="status-btn" data-status="unread">未读</button>
+              <button class="status-btn" data-status="reading">阅读中</button>
+              <button class="status-btn" data-status="read">已读</button>
+            </div>
+          </div>
+          <div class="detail-section">
+            <label>优先级</label>
+            <div class="priority-btns">
+              <button class="priority-btn" data-priority="low">低</button>
+              <button class="priority-btn" data-priority="normal">普通</button>
+              <button class="priority-btn" data-priority="high">高</button>
+            </div>
           </div>
           <div class="detail-section">
             <label>笔记</label>
@@ -190,6 +358,12 @@
             <button id="checkLinkBtn" class="small-btn">检查</button>
           </div>
           <div class="detail-section">
+            <label>快照</label>
+            <span id="detailSnapshotStatus"></span>
+            <button id="viewSnapshotBtn" class="small-btn">查看快照</button>
+            <button id="saveSnapshotNowBtn" class="small-btn">保存快照</button>
+          </div>
+          <div class="detail-section">
             <label>收藏时间</label>
             <p id="detailDate"></p>
           </div>
@@ -197,6 +371,11 @@
           <div class="detail-section">
             <label>相似书签</label>
             <div id="similarBookmarks" class="similar-list"></div>
+          </div>
+
+          <div class="detail-section">
+            <label>高亮标注</label>
+            <div id="bookmarkHighlights" class="highlights-list compact"></div>
           </div>
 
           <div class="detail-actions">
@@ -218,6 +397,166 @@
           <p id="notePageTitle" class="note-page-title"></p>
           <textarea id="saveNote" class="note-input large" placeholder="为什么收藏这个页面？有什么想法？"></textarea>
           <button id="confirmSaveWithNote" class="primary-btn">收藏并保存笔记</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Folder Modal -->
+    <div id="folderModal" class="modal hidden">
+      <div class="modal-content small">
+        <div class="modal-header">
+          <h2>📁 新建文件夹</h2>
+          <button id="closeFolderModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-item">
+            <label for="folderName">文件夹名称</label>
+            <input type="text" id="folderName" placeholder="输入文件夹名称">
+          </div>
+          <div class="setting-item">
+            <label for="folderIcon">图标</label>
+            <div class="icon-picker" id="folderIconPicker">
+              <button class="icon-option" data-icon="📁">📁</button>
+              <button class="icon-option" data-icon="📂">📂</button>
+              <button class="icon-option" data-icon="💼">💼</button>
+              <button class="icon-option" data-icon="📚">📚</button>
+              <button class="icon-option" data-icon="🗂️">🗂️</button>
+              <button class="icon-option" data-icon="📦">📦</button>
+              <button class="icon-option" data-icon="🏠">🏠</button>
+              <button class="icon-option" data-icon="💡">💡</button>
+              <button class="icon-option" data-icon="🎯">🎯</button>
+              <button class="icon-option" data-icon="⭐">⭐</button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <label for="folderColor">颜色</label>
+            <input type="color" id="folderColor" value="#4285f4">
+          </div>
+          <button id="confirmCreateFolder" class="primary-btn">创建文件夹</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Tag Modal -->
+    <div id="tagModal" class="modal hidden">
+      <div class="modal-content small">
+        <div class="modal-header">
+          <h2>🏷️ 新建标签</h2>
+          <button id="closeTagModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-item">
+            <label for="tagName">标签名称</label>
+            <input type="text" id="tagName" placeholder="输入标签名称">
+          </div>
+          <div class="setting-item">
+            <label for="tagColor">颜色</label>
+            <input type="color" id="tagColor" value="#34a853">
+          </div>
+          <button id="confirmCreateTag" class="primary-btn">创建标签</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Duplicates Modal -->
+    <div id="duplicatesModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>🔍 重复书签</h2>
+          <button id="closeDuplicatesModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div id="duplicatesList" class="duplicates-list"></div>
+          <div class="modal-actions">
+            <button id="mergeAllDuplicates" class="secondary-btn">合并所有重复</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Changes Modal -->
+    <div id="changesModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>📝 内容变更</h2>
+          <button id="closeChangesModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="hint">以下书签的网页内容发生了变化：</p>
+          <div id="changesList" class="changes-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Snapshot Viewer Modal -->
+    <div id="snapshotModal" class="modal hidden">
+      <div class="modal-content large">
+        <div class="modal-header">
+          <h2>📸 快照预览</h2>
+          <button id="closeSnapshotModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="snapshot-info">
+            <span id="snapshotDate"></span>
+            <button id="downloadSnapshot" class="small-btn">下载 HTML</button>
+          </div>
+          <iframe id="snapshotFrame" class="snapshot-frame"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <!-- Batch Tag Modal -->
+    <div id="batchTagModal" class="modal hidden">
+      <div class="modal-content small">
+        <div class="modal-header">
+          <h2>🏷️ 批量添加标签</h2>
+          <button id="closeBatchTagModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div id="batchTagsList" class="tags-select"></div>
+          <button id="confirmBatchTag" class="primary-btn">添加标签</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Batch Move Modal -->
+    <div id="batchMoveModal" class="modal hidden">
+      <div class="modal-content small">
+        <div class="modal-header">
+          <h2>📁 批量移动</h2>
+          <button id="closeBatchMoveModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <select id="batchMoveFolder" class="folder-select">
+            <option value="">选择目标文件夹</option>
+          </select>
+          <button id="confirmBatchMove" class="primary-btn">移动</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="shareModal" class="modal hidden">
+      <div class="modal-content small">
+        <div class="modal-header">
+          <h2>🔗 分享集合</h2>
+          <button id="closeShareModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-item">
+            <label>分享内容</label>
+            <p id="sharePreview"></p>
+          </div>
+          <div class="setting-item">
+            <label for="shareFormat">格式</label>
+            <select id="shareFormat">
+              <option value="markdown">Markdown</option>
+              <option value="html">HTML</option>
+              <option value="text">纯文本</option>
+            </select>
+          </div>
+          <textarea id="shareContent" class="share-textarea" readonly></textarea>
+          <button id="copyShareBtn" class="primary-btn">复制到剪贴板</button>
         </div>
       </div>
     </div>
