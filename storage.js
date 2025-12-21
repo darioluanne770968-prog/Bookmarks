@@ -685,6 +685,200 @@ class BookmarkStorage {
       .filter(r => r.score > 0)
       .sort((a, b) => b.score - a.score);
   }
+
+  // ==================== READING PROGRESS ====================
+
+  async updateReadingProgress(id, progress) {
+    const bookmark = await this.get(id);
+    if (bookmark) {
+      bookmark.readingProgress = progress; // 0-100
+      bookmark.lastReadAt = Date.now();
+      if (progress >= 100) {
+        bookmark.readStatus = 'read';
+        bookmark.readAt = Date.now();
+      } else if (progress > 0) {
+        bookmark.readStatus = 'reading';
+      }
+      await this.update(bookmark);
+    }
+  }
+
+  async getReadingProgress(id) {
+    const bookmark = await this.get(id);
+    return bookmark?.readingProgress || 0;
+  }
+
+  // ==================== ENCRYPTED BOOKMARKS ====================
+
+  async getEncryptedBookmarks() {
+    const bookmarks = await this.getAll();
+    return bookmarks.filter(b => b.isEncrypted);
+  }
+
+  async setBookmarkEncrypted(id, encryptedData) {
+    const bookmark = await this.get(id);
+    if (bookmark) {
+      bookmark.isEncrypted = true;
+      bookmark.encryptedData = encryptedData;
+      // Clear sensitive data
+      bookmark.summary = '[加密内容]';
+      bookmark.fullContent = '';
+      bookmark.note = '';
+      await this.update(bookmark);
+    }
+  }
+
+  async setBookmarkDecrypted(id, decryptedData) {
+    const bookmark = await this.get(id);
+    if (bookmark) {
+      bookmark.isEncrypted = false;
+      bookmark.encryptedData = null;
+      Object.assign(bookmark, decryptedData);
+      await this.update(bookmark);
+    }
+  }
+
+  // ==================== RECENTLY READ ====================
+
+  async getRecentlyRead(count = 10) {
+    const bookmarks = await this.getAll();
+    return bookmarks
+      .filter(b => b.readStatus === 'read' && b.readAt)
+      .sort((a, b) => b.readAt - a.readAt)
+      .slice(0, count);
+  }
+
+  // ==================== WEBHOOK CONFIGS ====================
+
+  async saveWebhookConfig(config) {
+    const result = await chrome.storage.sync.get(['webhooks']);
+    const webhooks = result.webhooks || [];
+    config.id = config.id || crypto.randomUUID();
+    config.createdAt = config.createdAt || Date.now();
+
+    const existingIndex = webhooks.findIndex(w => w.id === config.id);
+    if (existingIndex >= 0) {
+      webhooks[existingIndex] = config;
+    } else {
+      webhooks.push(config);
+    }
+
+    await chrome.storage.sync.set({ webhooks });
+    return config;
+  }
+
+  async getWebhookConfigs() {
+    const result = await chrome.storage.sync.get(['webhooks']);
+    return result.webhooks || [];
+  }
+
+  async deleteWebhookConfig(id) {
+    const result = await chrome.storage.sync.get(['webhooks']);
+    const webhooks = (result.webhooks || []).filter(w => w.id !== id);
+    await chrome.storage.sync.set({ webhooks });
+  }
+
+  // ==================== RSS FEED DATA ====================
+
+  async generateRSSFeed(folderId = null, format = 'rss') {
+    let bookmarks = await this.getAll();
+
+    if (folderId) {
+      bookmarks = bookmarks.filter(b => b.folderId === folderId);
+    }
+
+    // Sort by creation date
+    bookmarks.sort((a, b) => b.createdAt - a.createdAt);
+
+    const now = new Date().toUTCString();
+
+    if (format === 'rss') {
+      let rss = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+  <title>AI Bookmarks Feed</title>
+  <description>我的智能书签订阅</description>
+  <lastBuildDate>${now}</lastBuildDate>
+`;
+
+      for (const b of bookmarks.slice(0, 50)) {
+        rss += `  <item>
+    <title><![CDATA[${b.title}]]></title>
+    <link>${b.url}</link>
+    <description><![CDATA[${b.summary || ''}]]></description>
+    <pubDate>${new Date(b.createdAt).toUTCString()}</pubDate>
+    <category>${b.category || '未分类'}</category>
+  </item>
+`;
+      }
+
+      rss += `</channel>
+</rss>`;
+      return rss;
+    }
+
+    // JSON Feed format
+    return JSON.stringify({
+      version: 'https://jsonfeed.org/version/1.1',
+      title: 'AI Bookmarks Feed',
+      description: '我的智能书签订阅',
+      items: bookmarks.slice(0, 50).map(b => ({
+        id: b.id,
+        url: b.url,
+        title: b.title,
+        summary: b.summary,
+        date_published: new Date(b.createdAt).toISOString(),
+        tags: b.tags || []
+      }))
+    }, null, 2);
+  }
+
+  // ==================== API TOKEN ====================
+
+  async saveApiToken(token) {
+    await chrome.storage.sync.set({ apiToken: token });
+  }
+
+  async getApiToken() {
+    const result = await chrome.storage.sync.get(['apiToken']);
+    return result.apiToken;
+  }
+
+  async generateApiToken() {
+    const token = 'aibm_' + crypto.randomUUID().replace(/-/g, '');
+    await this.saveApiToken(token);
+    return token;
+  }
+
+  // ==================== READING TIME ESTIMATES ====================
+
+  async updateReadingTimeEstimate(id, minutes) {
+    const bookmark = await this.get(id);
+    if (bookmark) {
+      bookmark.estimatedReadTime = minutes;
+      await this.update(bookmark);
+    }
+  }
+
+  // ==================== KEY POINTS ====================
+
+  async updateKeyPoints(id, keyPoints) {
+    const bookmark = await this.get(id);
+    if (bookmark) {
+      bookmark.keyPoints = keyPoints;
+      await this.update(bookmark);
+    }
+  }
+
+  // ==================== SUGGESTED TAGS ====================
+
+  async updateSuggestedTags(id, suggestedTags) {
+    const bookmark = await this.get(id);
+    if (bookmark) {
+      bookmark.suggestedTags = suggestedTags;
+      await this.update(bookmark);
+    }
+  }
 }
 
 export const storage = new BookmarkStorage();

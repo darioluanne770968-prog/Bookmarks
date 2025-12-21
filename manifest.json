@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "AI Bookmarks",
-  "version": "2.0.0",
-  "description": "智能书签管理 - AI 摘要、智能分类、语义搜索、知识图谱、快照存档、高亮标注",
+  "version": "3.0.0",
+  "description": "智能书签管理 - AI 摘要、智能分类、语义搜索、知识图谱、快照存档、高亮标注、阅读洞察、Webhook、RSS、加密保护",
   "permissions": [
     "storage",
     "activeTab",
@@ -11,7 +11,9 @@
     "contextMenus",
     "bookmarks",
     "scripting",
-    "tabs"
+    "tabs",
+    "sidePanel",
+    "tts"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -23,6 +25,9 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
   },
   "background": {
     "service_worker": "background.js",
@@ -61,6 +66,13 @@
         "mac": "Alt+Shift+H"
       },
       "description": "保存选中文本高亮"
+    },
+    "_execute_side_panel": {
+      "suggested_key": {
+        "default": "Alt+Shift+B",
+        "mac": "Alt+Shift+B"
+      },
+      "description": "打开侧边栏"
     }
   }
 }

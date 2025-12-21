@@ -626,12 +626,250 @@ async function handleMessage(request, sendResponse) {
         sendResponse({ success: true, data: shareData });
         break;
 
+      // ==================== TIER 4: AI DEEP ENHANCEMENT ====================
+      case 'suggestTags':
+        const allTags = await storage.getAllTags();
+        const suggestedTags = await aiService.suggestTags(
+          request.title,
+          request.content,
+          allTags
+        );
+        sendResponse({ success: true, data: suggestedTags });
+        break;
+
+      case 'getRecommendations':
+        const allBms = await storage.getAll();
+        const recentlyRead = await storage.getRecentlyRead(20);
+        const recommendations = await aiService.getRecommendations(
+          allBms,
+          recentlyRead,
+          request.count || 5
+        );
+        sendResponse({ success: true, data: recommendations });
+        break;
+
+      case 'extractKeyPoints':
+        const kpBookmark = await storage.get(request.id);
+        if (kpBookmark) {
+          const keyPoints = await aiService.extractKeyPoints(
+            kpBookmark.title,
+            kpBookmark.fullContent || kpBookmark.summary
+          );
+          await storage.updateKeyPoints(request.id, keyPoints);
+          sendResponse({ success: true, data: keyPoints });
+        } else {
+          sendResponse({ success: false, error: 'Bookmark not found' });
+        }
+        break;
+
+      case 'ragQuery':
+        const ragBookmarks = await storage.getAll();
+        const ragResult = await aiService.ragQuery(request.query, ragBookmarks);
+        sendResponse({ success: true, data: ragResult });
+        break;
+
+      case 'getReadingInsights':
+        const insightBookmarks = await storage.getAll();
+        const insights = await aiService.getReadingInsights(insightBookmarks);
+        sendResponse({ success: true, data: insights });
+        break;
+
+      // ==================== TIER 6: READING EXPERIENCE ====================
+      case 'updateReadingProgress':
+        await storage.updateReadingProgress(request.id, request.progress);
+        sendResponse({ success: true });
+        break;
+
+      case 'getReadingProgress':
+        const progress = await storage.getReadingProgress(request.id);
+        sendResponse({ success: true, data: progress });
+        break;
+
+      case 'estimateReadingTime':
+        const etBookmark = await storage.get(request.id);
+        if (etBookmark) {
+          const readTime = aiService.estimateReadingTime(
+            etBookmark.fullContent || etBookmark.summary
+          );
+          await storage.updateReadingTimeEstimate(request.id, readTime);
+          sendResponse({ success: true, data: readTime });
+        } else {
+          sendResponse({ success: false, error: 'Bookmark not found' });
+        }
+        break;
+
+      case 'translateContent':
+        const transResult = await aiService.translateText(
+          request.text,
+          request.targetLang || 'zh'
+        );
+        sendResponse({ success: true, data: transResult });
+        break;
+
+      case 'getRecentlyRead':
+        const recentRead = await storage.getRecentlyRead(request.count || 10);
+        sendResponse({ success: true, data: recentRead });
+        break;
+
+      // ==================== TIER 7: INTEGRATION ====================
+      case 'saveWebhook':
+        const savedWebhook = await storage.saveWebhookConfig(request.config);
+        sendResponse({ success: true, data: savedWebhook });
+        break;
+
+      case 'getWebhooks':
+        const webhooks = await storage.getWebhookConfigs();
+        sendResponse({ success: true, data: webhooks });
+        break;
+
+      case 'deleteWebhook':
+        await storage.deleteWebhookConfig(request.id);
+        sendResponse({ success: true });
+        break;
+
+      case 'triggerWebhook':
+        const webhookResult = await triggerWebhook(request.webhookId, request.data);
+        sendResponse({ success: true, data: webhookResult });
+        break;
+
+      case 'generateRSSFeed':
+        const rssFeed = await storage.generateRSSFeed(request.folderId, request.format);
+        sendResponse({ success: true, data: rssFeed });
+        break;
+
+      case 'getApiToken':
+        const apiToken = await storage.getApiToken();
+        sendResponse({ success: true, data: apiToken });
+        break;
+
+      case 'generateApiToken':
+        const newApiToken = await storage.generateApiToken();
+        sendResponse({ success: true, data: newApiToken });
+        break;
+
+      // ==================== TIER 8: SECURITY ====================
+      case 'encryptBookmark':
+        const toEncrypt = await storage.get(request.id);
+        if (toEncrypt) {
+          const sensitiveData = {
+            summary: toEncrypt.summary,
+            fullContent: toEncrypt.fullContent,
+            note: toEncrypt.note,
+            keywords: toEncrypt.keywords
+          };
+          const encrypted = await aiService.encryptData(sensitiveData, request.password);
+          await storage.setBookmarkEncrypted(request.id, encrypted);
+          sendResponse({ success: true });
+        } else {
+          sendResponse({ success: false, error: 'Bookmark not found' });
+        }
+        break;
+
+      case 'decryptBookmark':
+        const toDecrypt = await storage.get(request.id);
+        if (toDecrypt && toDecrypt.encryptedData) {
+          try {
+            const decrypted = await aiService.decryptData(toDecrypt.encryptedData, request.password);
+            await storage.setBookmarkDecrypted(request.id, decrypted);
+            sendResponse({ success: true, data: decrypted });
+          } catch (e) {
+            sendResponse({ success: false, error: e.message });
+          }
+        } else {
+          sendResponse({ success: false, error: 'Bookmark not found or not encrypted' });
+        }
+        break;
+
+      case 'getEncryptedBookmarks':
+        const encryptedBms = await storage.getEncryptedBookmarks();
+        sendResponse({ success: true, data: encryptedBms });
+        break;
+
       default:
         sendResponse({ success: false, error: 'Unknown action' });
     }
   } catch (error) {
     console.error('Background error:', error);
     sendResponse({ success: false, error: error.message });
+  }
+}
+
+// Trigger webhook
+async function triggerWebhook(webhookId, data) {
+  const webhooks = await storage.getWebhookConfigs();
+  const webhook = webhooks.find(w => w.id === webhookId);
+
+  if (!webhook) {
+    throw new Error('Webhook not found');
+  }
+
+  try {
+    const response = await fetch(webhook.url, {
+      method: webhook.method || 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...webhook.headers
+      },
+      body: JSON.stringify({
+        event: webhook.event,
+        timestamp: Date.now(),
+        data
+      })
+    });
+
+    return {
+      status: response.status,
+      ok: response.ok
+    };
+  } catch (error) {
+    return {
+      status: 0,
+      ok: false,
+      error: error.message
+    };
+  }
+}
+
+// Auto-trigger webhooks on events
+async function onBookmarkSaved(bookmark) {
+  const webhooks = await storage.getWebhookConfigs();
+  const saveWebhooks = webhooks.filter(w => w.event === 'bookmark_saved' && w.enabled);
+
+  for (const webhook of saveWebhooks) {
+    try {
+      await triggerWebhook(webhook.id, {
+        bookmark: {
+          id: bookmark.id,
+          title: bookmark.title,
+          url: bookmark.url,
+          category: bookmark.category,
+          tags: bookmark.tags
+        }
+      });
+    } catch (e) {
+      console.error('Webhook trigger failed:', e);
+    }
+  }
+}
+
+// Handle reading progress from content script
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'updateReadingProgressFromContent') {
+    handleReadingProgressUpdate(request.url, request.progress);
+    sendResponse({ success: true });
+    return true;
+  }
+});
+
+async function handleReadingProgressUpdate(url, progress) {
+  try {
+    await storage.init();
+    const bookmark = await storage.getByUrl(url);
+    if (bookmark) {
+      await storage.updateReadingProgress(bookmark.id, progress);
+    }
+  } catch (e) {
+    console.error('Failed to update reading progress:', e);
   }
 }
 

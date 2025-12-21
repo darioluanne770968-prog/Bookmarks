@@ -263,6 +263,248 @@ if (document.readyState === 'loading') {
   init();
 }
 
+// ==================== READER MODE ====================
+
+let readerModeActive = false;
+let originalContent = null;
+
+function enableReaderMode() {
+  if (readerModeActive) return;
+
+  // Store original body
+  originalContent = document.body.innerHTML;
+
+  // Extract article content
+  const article = document.querySelector('article') ||
+    document.querySelector('main') ||
+    document.querySelector('[role="main"]') ||
+    document.querySelector('.post-content') ||
+    document.querySelector('.article-content') ||
+    document.querySelector('.entry-content') ||
+    document.body;
+
+  const clone = article.cloneNode(true);
+
+  // Remove unnecessary elements
+  const removeSelectors = 'script, style, nav, header, footer, aside, .sidebar, .comments, .advertisement, .ad, .social-share, .related-posts, iframe';
+  clone.querySelectorAll(removeSelectors).forEach(el => el.remove());
+
+  // Get title
+  const title = document.title ||
+    document.querySelector('h1')?.textContent ||
+    'Article';
+
+  // Create reader mode container
+  const readerContainer = document.createElement('div');
+  readerContainer.id = 'ai-bookmark-reader-mode';
+  readerContainer.innerHTML = `
+    <style>
+      #ai-bookmark-reader-mode {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #fdf6e3;
+        z-index: 999999;
+        overflow-y: auto;
+        padding: 40px;
+        font-family: Georgia, 'Times New Roman', serif;
+      }
+      #ai-bookmark-reader-mode.dark {
+        background: #1a1a2e;
+        color: #e0e0e0;
+      }
+      #ai-bookmark-reader-mode .reader-header {
+        max-width: 700px;
+        margin: 0 auto 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #ai-bookmark-reader-mode .reader-controls {
+        display: flex;
+        gap: 10px;
+      }
+      #ai-bookmark-reader-mode .reader-btn {
+        padding: 8px 16px;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      #ai-bookmark-reader-mode .reader-content {
+        max-width: 700px;
+        margin: 0 auto;
+        line-height: 1.8;
+        font-size: 18px;
+      }
+      #ai-bookmark-reader-mode .reader-content h1 {
+        font-size: 32px;
+        margin-bottom: 20px;
+        line-height: 1.3;
+      }
+      #ai-bookmark-reader-mode .reader-content p {
+        margin-bottom: 20px;
+      }
+      #ai-bookmark-reader-mode .reader-content img {
+        max-width: 100%;
+        height: auto;
+        margin: 20px 0;
+      }
+      #ai-bookmark-reader-mode .reader-progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        transition: width 0.1s;
+        z-index: 1000000;
+      }
+      #ai-bookmark-reader-mode .reading-time {
+        font-size: 14px;
+        color: #888;
+        margin-bottom: 20px;
+      }
+    </style>
+    <div class="reader-progress" id="readerProgress"></div>
+    <div class="reader-header">
+      <span>阅读模式</span>
+      <div class="reader-controls">
+        <button class="reader-btn" id="readerFontUp">A+</button>
+        <button class="reader-btn" id="readerFontDown">A-</button>
+        <button class="reader-btn" id="readerDarkMode">暗色</button>
+        <button class="reader-btn" id="readerClose">关闭</button>
+      </div>
+    </div>
+    <div class="reader-content">
+      <h1>${escapeHtml(title)}</h1>
+      <div class="reading-time" id="readingTimeDisplay"></div>
+      <div id="readerArticle"></div>
+    </div>
+  `;
+
+  document.body.innerHTML = '';
+  document.body.appendChild(readerContainer);
+
+  // Insert article content
+  document.getElementById('readerArticle').innerHTML = clone.innerHTML;
+
+  // Setup controls
+  document.getElementById('readerClose').addEventListener('click', disableReaderMode);
+  document.getElementById('readerFontUp').addEventListener('click', () => adjustFontSize(2));
+  document.getElementById('readerFontDown').addEventListener('click', () => adjustFontSize(-2));
+  document.getElementById('readerDarkMode').addEventListener('click', toggleReaderDarkMode);
+
+  // Calculate reading time
+  const wordCount = clone.textContent.split(/\s+/).length;
+  const charCount = clone.textContent.length;
+  const readingTime = Math.ceil(charCount / 300);
+  document.getElementById('readingTimeDisplay').textContent = `预计阅读时间: ${readingTime} 分钟`;
+
+  // Track reading progress
+  readerContainer.addEventListener('scroll', trackReadingProgress);
+
+  readerModeActive = true;
+}
+
+function disableReaderMode() {
+  if (!readerModeActive || !originalContent) return;
+
+  document.body.innerHTML = originalContent;
+  readerModeActive = false;
+  originalContent = null;
+
+  // Re-initialize
+  init();
+}
+
+function adjustFontSize(delta) {
+  const content = document.querySelector('#ai-bookmark-reader-mode .reader-content');
+  if (content) {
+    const currentSize = parseInt(getComputedStyle(content).fontSize);
+    content.style.fontSize = (currentSize + delta) + 'px';
+  }
+}
+
+function toggleReaderDarkMode() {
+  const container = document.getElementById('ai-bookmark-reader-mode');
+  if (container) {
+    container.classList.toggle('dark');
+    const btn = document.getElementById('readerDarkMode');
+    btn.textContent = container.classList.contains('dark') ? '亮色' : '暗色';
+  }
+}
+
+function trackReadingProgress() {
+  const container = document.getElementById('ai-bookmark-reader-mode');
+  if (!container) return;
+
+  const scrollHeight = container.scrollHeight - container.clientHeight;
+  const progress = Math.round((container.scrollTop / scrollHeight) * 100);
+
+  const progressBar = document.getElementById('readerProgress');
+  if (progressBar) {
+    progressBar.style.width = progress + '%';
+  }
+
+  // Send progress to background
+  chrome.runtime.sendMessage({
+    action: 'updateReadingProgressFromContent',
+    url: window.location.href,
+    progress
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ==================== READING PROGRESS TRACKING (non-reader mode) ====================
+
+let lastScrollProgress = 0;
+
+function setupScrollTracking() {
+  let ticking = false;
+
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      window.requestAnimationFrame(() => {
+        const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const progress = Math.round((window.scrollY / scrollHeight) * 100);
+
+        if (progress !== lastScrollProgress && progress > lastScrollProgress) {
+          lastScrollProgress = progress;
+
+          // Send to side panel if open
+          if (window.parent !== window) {
+            window.parent.postMessage({
+              type: 'readingProgress',
+              progress
+            }, '*');
+          }
+
+          // Send to background every 10%
+          if (progress % 10 === 0) {
+            chrome.runtime.sendMessage({
+              action: 'updateReadingProgressFromContent',
+              url: window.location.href,
+              progress
+            }).catch(() => {});
+          }
+        }
+
+        ticking = false;
+      });
+      ticking = true;
+    }
+  });
+}
+
 // Listen for messages from popup or background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   switch (request.action) {
@@ -299,8 +541,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
       break;
 
+    case 'enableReaderMode':
+      enableReaderMode();
+      sendResponse({ success: true });
+      break;
+
+    case 'disableReaderMode':
+      disableReaderMode();
+      sendResponse({ success: true });
+      break;
+
+    case 'getReadingProgress':
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = Math.round((window.scrollY / scrollHeight) * 100);
+      sendResponse({ progress });
+      break;
+
     default:
       sendResponse({ error: 'Unknown action' });
   }
   return true;
 });
+
+// Setup scroll tracking
+setupScrollTracking();

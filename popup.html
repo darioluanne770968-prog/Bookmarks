@@ -560,6 +560,294 @@
         </div>
       </div>
     </div>
+
+    <!-- Insights Modal -->
+    <div id="insightsModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>📊 阅读洞察</h2>
+          <button id="closeInsightsModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="insights-summary">
+            <div class="insight-card">
+              <div class="insight-value" id="insightTotal">0</div>
+              <div class="insight-label">总收藏</div>
+            </div>
+            <div class="insight-card">
+              <div class="insight-value" id="insightRead">0</div>
+              <div class="insight-label">已读</div>
+            </div>
+            <div class="insight-card">
+              <div class="insight-value" id="insightReadRate">0%</div>
+              <div class="insight-label">阅读率</div>
+            </div>
+          </div>
+
+          <div class="insight-section">
+            <h4>🔥 阅读连续</h4>
+            <div class="streak-display" id="streakDisplay">
+              <span class="streak-icon">📖</span>
+              <span class="streak-text">加载中...</span>
+            </div>
+          </div>
+
+          <div class="insight-section">
+            <h4>📚 待读积压</h4>
+            <div class="backlog-display" id="backlogDisplay">
+              <span class="backlog-count">0</span> 篇待读，约需 <span class="backlog-time">0</span> 分钟
+            </div>
+          </div>
+
+          <div class="insight-section">
+            <h4>📈 本周/本月</h4>
+            <div class="velocity-display">
+              <div class="velocity-item">
+                <span class="velocity-label">本周收藏</span>
+                <span class="velocity-value" id="savedThisWeek">0</span>
+              </div>
+              <div class="velocity-item">
+                <span class="velocity-label">本周阅读</span>
+                <span class="velocity-value" id="readThisWeek">0</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="insight-section">
+            <h4>💡 建议</h4>
+            <div id="insightRecommendations" class="recommendations-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Webhook Modal -->
+    <div id="webhookModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>🔗 Webhook 配置</h2>
+          <button id="closeWebhookModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-item">
+            <label for="webhookUrl">Webhook URL</label>
+            <input type="url" id="webhookUrl" placeholder="https://your-server.com/webhook">
+          </div>
+          <div class="setting-item">
+            <label for="webhookEvent">触发事件</label>
+            <select id="webhookEvent">
+              <option value="bookmark_saved">书签保存</option>
+              <option value="bookmark_deleted">书签删除</option>
+              <option value="bookmark_read">标记已读</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="webhookEnabled" checked>
+              启用此 Webhook
+            </label>
+          </div>
+          <button id="saveWebhookBtn" class="primary-btn">保存 Webhook</button>
+
+          <div class="section-divider"></div>
+
+          <h4>已配置的 Webhooks</h4>
+          <div id="webhooksList" class="webhooks-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RSS Modal -->
+    <div id="rssModal" class="modal hidden">
+      <div class="modal-content small">
+        <div class="modal-header">
+          <h2>📡 RSS 订阅</h2>
+          <button id="closeRssModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-item">
+            <label for="rssFolderId">选择文件夹 (可选)</label>
+            <select id="rssFolderId">
+              <option value="">全部书签</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <label for="rssFormat">格式</label>
+            <select id="rssFormat">
+              <option value="rss">RSS 2.0</option>
+              <option value="json">JSON Feed</option>
+            </select>
+          </div>
+          <button id="generateRssBtn" class="primary-btn">生成 RSS</button>
+          <textarea id="rssOutput" class="rss-textarea" readonly placeholder="点击生成后，RSS 内容将显示在这里..."></textarea>
+          <button id="copyRssBtn" class="secondary-btn" style="margin-top: 8px;">复制 RSS</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Token Modal -->
+    <div id="apiTokenModal" class="modal hidden">
+      <div class="modal-content small">
+        <div class="modal-header">
+          <h2>🔑 API 令牌</h2>
+          <button id="closeApiTokenModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="hint">使用 API 令牌可以从外部应用访问您的书签数据。</p>
+          <div class="setting-item">
+            <label>当前令牌</label>
+            <div class="api-token-display">
+              <input type="text" id="currentApiToken" readonly placeholder="未生成">
+              <button id="copyApiTokenBtn" class="small-btn">复制</button>
+            </div>
+          </div>
+          <button id="generateApiTokenBtn" class="primary-btn">生成新令牌</button>
+          <p class="hint warning">注意：生成新令牌将使旧令牌失效。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Encrypt Modal -->
+    <div id="encryptModal" class="modal hidden">
+      <div class="modal-content small">
+        <div class="modal-header">
+          <h2>🔒 加密书签</h2>
+          <button id="closeEncryptModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="hint">加密后，书签的摘要、笔记等敏感信息将被加密存储，需要密码才能查看。</p>
+          <div class="setting-item">
+            <label for="encryptPassword">设置密码</label>
+            <input type="password" id="encryptPassword" placeholder="输入加密密码">
+          </div>
+          <div class="setting-item">
+            <label for="encryptPasswordConfirm">确认密码</label>
+            <input type="password" id="encryptPasswordConfirm" placeholder="再次输入密码">
+          </div>
+          <button id="confirmEncryptBtn" class="primary-btn">加密</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decrypt Modal -->
+    <div id="decryptModal" class="modal hidden">
+      <div class="modal-content small">
+        <div class="modal-header">
+          <h2>🔓 解密书签</h2>
+          <button id="closeDecryptModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="hint">输入密码以查看加密的书签内容。</p>
+          <div class="setting-item">
+            <label for="decryptPassword">密码</label>
+            <input type="password" id="decryptPassword" placeholder="输入解密密码">
+          </div>
+          <button id="confirmDecryptBtn" class="primary-btn">解密</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key Points Modal -->
+    <div id="keyPointsModal" class="modal hidden">
+      <div class="modal-content small">
+        <div class="modal-header">
+          <h2>📝 核心要点</h2>
+          <button id="closeKeyPointsModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div id="keyPointsList" class="key-points-list">
+            <p class="hint">点击提取按钮获取文章要点</p>
+          </div>
+          <button id="extractKeyPointsBtn" class="primary-btn">AI 提取要点</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Suggested Tags Modal -->
+    <div id="suggestedTagsModal" class="modal hidden">
+      <div class="modal-content small">
+        <div class="modal-header">
+          <h2>🏷️ AI 推荐标签</h2>
+          <button id="closeSuggestedTagsModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div id="suggestedTagsList" class="suggested-tags-list">
+            <p class="hint">点击获取按钮让 AI 推荐标签</p>
+          </div>
+          <button id="getSuggestedTagsBtn" class="primary-btn">AI 推荐标签</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Translation Modal -->
+    <div id="translationModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>🌐 翻译</h2>
+          <button id="closeTranslationModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-item">
+            <label for="targetLanguage">目标语言</label>
+            <select id="targetLanguage">
+              <option value="zh">中文</option>
+              <option value="en">English</option>
+              <option value="ja">日本語</option>
+              <option value="ko">한국어</option>
+              <option value="es">Español</option>
+              <option value="fr">Français</option>
+              <option value="de">Deutsch</option>
+            </select>
+          </div>
+          <button id="translateContentBtn" class="primary-btn">翻译</button>
+          <div class="translation-result">
+            <h4>原文</h4>
+            <div id="translationOriginal" class="translation-text"></div>
+            <h4>译文</h4>
+            <div id="translationTranslated" class="translation-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RAG Query Modal -->
+    <div id="ragModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>🤖 知识库问答</h2>
+          <button id="closeRagModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="hint">向您的书签知识库提问，AI 将基于您收藏的文章回答问题。</p>
+          <div class="setting-item">
+            <label for="ragQueryInput">您的问题</label>
+            <textarea id="ragQueryInput" class="rag-input" placeholder="例如：我收藏的文章里有哪些关于 React 性能优化的内容？"></textarea>
+          </div>
+          <button id="askRagBtn" class="primary-btn">提问</button>
+          <div id="ragResult" class="rag-result hidden">
+            <h4>回答</h4>
+            <div id="ragAnswer2" class="rag-answer-text"></div>
+            <h4>来源</h4>
+            <div id="ragSources" class="rag-sources-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recommendations Modal -->
+    <div id="recommendationsModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>✨ 为你推荐</h2>
+          <button id="closeRecommendationsModal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="hint">基于您的阅读历史，AI 为您推荐以下书签：</p>
+          <div id="recommendationsList2" class="recommendations-list"></div>
+          <button id="refreshRecommendationsBtn" class="secondary-btn">刷新推荐</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="popup.js" type="module"></script>

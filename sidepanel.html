@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Bookmarks - 侧边栏</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: #333;
+    }
+
+    .container {
+      padding: 16px;
+      max-width: 100%;
+    }
+
+    .header {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .header h1 {
+      font-size: 18px;
+      color: #667eea;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 8px;
+    }
+
+    .search-box input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: #667eea;
+    }
+
+    .search-box button {
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .section {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #667eea;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .quick-action {
+      padding: 12px;
+      background: #f5f7ff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .quick-action:hover {
+      background: #e8ecff;
+      transform: translateY(-2px);
+    }
+
+    .quick-action .icon {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+
+    .quick-action .label {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .bookmark-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .bookmark-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .bookmark-item:hover {
+      background: #f5f7ff;
+    }
+
+    .bookmark-item img {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+    }
+
+    .bookmark-item .info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .bookmark-item .title {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bookmark-item .meta {
+      font-size: 11px;
+      color: #999;
+    }
+
+    .bookmark-item .actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .bookmark-item:hover .actions {
+      opacity: 1;
+    }
+
+    .bookmark-item .actions button {
+      padding: 4px 8px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .insights-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+
+    .insights-card h3 {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .insights-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      text-align: center;
+    }
+
+    .insights-stats .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .insights-stats .stat-label {
+      font-size: 11px;
+      opacity: 0.8;
+    }
+
+    .streak-badge {
+      background: rgba(255,255,255,0.2);
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    .recommendations {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .recommendation-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: #f5f7ff;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .recommendation-item:hover {
+      background: #e8ecff;
+      transform: translateX(4px);
+    }
+
+    .recommendation-item .badge {
+      background: #667eea;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+    }
+
+    .rag-input {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .rag-input textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      resize: none;
+      outline: none;
+      min-height: 80px;
+    }
+
+    .rag-input textarea:focus {
+      border-color: #667eea;
+    }
+
+    .rag-answer {
+      background: #f5f7ff;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.6;
+      margin-top: 8px;
+      display: none;
+    }
+
+    .rag-answer.show {
+      display: block;
+    }
+
+    .rag-sources {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #e0e0e0;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .rag-sources a {
+      color: #667eea;
+      text-decoration: none;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #999;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 30px;
+      color: #999;
+    }
+
+    .empty-state .icon {
+      font-size: 40px;
+      margin-bottom: 10px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 8px;
+      background: #f5f7ff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #666;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: #667eea;
+      color: white;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .current-page {
+      background: #fff3cd;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .current-page .title {
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .current-page .url {
+      font-size: 11px;
+      color: #666;
+      word-break: break-all;
+    }
+
+    .current-page .status {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .current-page .status-badge {
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+    }
+
+    .current-page .status-badge.saved {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .current-page .status-badge.not-saved {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: #e0e0e0;
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .progress-bar .fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header with Search -->
+    <div class="header">
+      <h1>AI Bookmarks</h1>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="搜索书签...">
+        <button id="searchBtn">搜索</button>
+      </div>
+    </div>
+
+    <!-- Current Page Info -->
+    <div class="section" id="currentPageSection">
+      <div class="section-title">当前页面</div>
+      <div class="current-page" id="currentPage">
+        <div class="title" id="currentTitle">加载中...</div>
+        <div class="url" id="currentUrl"></div>
+        <div class="status" id="currentStatus"></div>
+        <div class="progress-bar" id="progressBar" style="display: none;">
+          <div class="fill" id="progressFill" style="width: 0%"></div>
+        </div>
+      </div>
+      <div class="quick-actions" style="margin-top: 12px;">
+        <button class="quick-action" id="saveCurrentBtn">
+          <div class="icon">📌</div>
+          <div class="label">收藏此页</div>
+        </button>
+        <button class="quick-action" id="ttsBtn">
+          <div class="icon">🔊</div>
+          <div class="label">朗读内容</div>
+        </button>
+        <button class="quick-action" id="translateBtn">
+          <div class="icon">🌐</div>
+          <div class="label">翻译页面</div>
+        </button>
+        <button class="quick-action" id="keyPointsBtn">
+          <div class="icon">📝</div>
+          <div class="label">提取要点</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Insights -->
+    <div class="insights-card" id="insightsCard">
+      <h3>阅读洞察</h3>
+      <div class="insights-stats">
+        <div>
+          <div class="stat-value" id="totalCount">0</div>
+          <div class="stat-label">总收藏</div>
+        </div>
+        <div>
+          <div class="stat-value" id="readCount">0</div>
+          <div class="stat-label">已读</div>
+        </div>
+        <div>
+          <div class="stat-value" id="unreadCount">0</div>
+          <div class="stat-label">待读</div>
+        </div>
+      </div>
+      <div class="streak-badge" id="streakBadge">加载中...</div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="section">
+      <div class="tabs">
+        <button class="tab active" data-tab="recommendations">推荐</button>
+        <button class="tab" data-tab="recent">最近阅读</button>
+        <button class="tab" data-tab="rag">AI 问答</button>
+      </div>
+
+      <!-- Recommendations Tab -->
+      <div class="tab-content active" id="recommendationsTab">
+        <div class="section-title">为你推荐</div>
+        <div class="recommendations" id="recommendationsList">
+          <div class="loading">加载推荐中...</div>
+        </div>
+      </div>
+
+      <!-- Recent Tab -->
+      <div class="tab-content" id="recentTab">
+        <div class="section-title">最近阅读</div>
+        <div class="bookmark-list" id="recentList">
+          <div class="loading">加载中...</div>
+        </div>
+      </div>
+
+      <!-- RAG Tab -->
+      <div class="tab-content" id="ragTab">
+        <div class="section-title">知识库问答</div>
+        <div class="rag-input">
+          <textarea id="ragQuery" placeholder="向你的书签知识库提问..."></textarea>
+          <button class="quick-action" id="ragAskBtn" style="width: 100%;">
+            <div class="icon">🤖</div>
+            <div class="label">提问</div>
+          </button>
+        </div>
+        <div class="rag-answer" id="ragAnswer">
+          <div class="answer-text"></div>
+          <div class="rag-sources"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Search Results -->
+    <div class="section" id="searchResultsSection" style="display: none;">
+      <div class="section-title">搜索结果</div>
+      <div class="bookmark-list" id="searchResults"></div>
+    </div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
